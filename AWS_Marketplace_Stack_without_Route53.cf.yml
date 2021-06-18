@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Create [WordPress by Bitmani] insntace.
+Description: Create AWS Marketplace insntace.
 Parameters:
   ProjectName:
     Description: Name of this project. [ProjectName] is used for the naming of each resource.
@@ -7,7 +7,7 @@ Parameters:
     MinLength: "1"
     Default: WordPress
   EC2InstanceAmiId:
-    Description: the latest AMI ID of [WordPress by Bitnami] or [WordPress with NGINX and SSL Certified by Bitnami].
+    Description: AMI ID of AWS Marketplace.
     Type: String
     MinLength: "1"
   EC2InstanceType:
