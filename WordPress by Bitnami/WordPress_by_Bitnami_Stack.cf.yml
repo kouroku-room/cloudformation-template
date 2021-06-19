@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create [WordPress by Bitnami] insntace.
+Parameters:
+  ProjectName:
+    Description: Name of this project. [ProjectName] is used for the naming of each resource.
+    Type: String
+    MinLength: "1"
+    Default: WordPress
+  EC2InstanceAmiId:
+    Description: "AMI ID of [WordPress by Bitnami].\n
+      Check AWS Marketplace page >> https://aws.amazon.com/marketplace/pp/prodview-bzstv3wbn5wkq"
+    Type: String
+    MinLength: "1"
+  EC2InstanceType:
+    Description: "WebServer EC2 instance type.\n
+      Learn more >> https://aws.amazon.com/jp/ec2/instance-types/"
+    Type: String
+    MinLength: "1"
+    Default: t2.micro
+  EC2InstanceKeyName:
+    Description: "Name of an existing EC2 KeyPair to enable SSH access to EC2 instance.\n
+      If you want to use a new EC2 KeyPair, create it from EC2 console.\n
+      >> https://console.aws.amazon.com/ec2/v2/home#CreateKeyPair:"
+    Type: "AWS::EC2::KeyPair::KeyName"
+    MinLength: "1"
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+  SSHLocation:
+    Description: The IP address range that can be used to SSH to EC2 instance.
+    Type: String
+    MinLength: "9"
+    MaxLength: "18"
+    Default: 0.0.0.0/0
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  DomainName:
+    Description: The domain name used to add DNS record to Route 53's hosted zone.
+    Type: String
+    MinLength: "1"
+    AllowedPattern: '[a-zA-Z0-9\-\.]*'
+    ConstraintDescription: only domain characters.
+  AddWWWDomain:
+    Description: Whether to add DNS record with WWW to Route 53's hosted zone.
+    Type: String
+    AllowedValues:
+      - Yes
+      - No
+    Default: Yes
+  Route53HostedZoneID:
+    Description: The Route 53's hosted zone ID to add domain's DNS record to Route 53's hosted zone.
+    Type: "AWS::Route53::HostedZone::Id"
+Conditions:
+  CreateWWWRecord: !Equals [ !Ref AddWWWDomain, Yes ]
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label:
+          default: Project Configuration
+        Parameters:
+          - ProjectName
+      - Label:
+          default: Amazon EC2 Configuration
+        Parameters:
+          - EC2InstanceAmiId
+          - EC2InstanceType
+          - EC2InstanceKeyName
+          - SSHLocation
+      - Label:
+          default: Route53 Configuration
+        Parameters:
+          - DomainName
+          - AddWWWDomain
+          - Route53HostedZoneID
+Resources:
+  EC2SecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupName: !Sub "SecurityGroup-${ProjectName}"
+      Tags:
+        - Key: Name
+          Value: !Sub "SecurityGroup-${ProjectName}"
+      GroupDescription: Enable HTTP / HTTPS / SSH access
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: "80"
+          ToPort: "80"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: "443"
+          ToPort: "443"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: "22"
+          ToPort: "22"
+          CidrIp: !Ref SSHLocation
+  EC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: !Ref EC2InstanceAmiId
+      InstanceType: !Ref EC2InstanceType
+      SecurityGroups:
+        - !Ref EC2SecurityGroup
+      KeyName: !Ref EC2InstanceKeyName
+      Tags:
+        - Key: Name
+          Value: !Sub "Instance-${ProjectName}"
+  EC2EIP:
+    Type: "AWS::EC2::EIP"
+    Properties:
+      InstanceId: !Ref EC2Instance
+      Tags:
+        - Key: Name
+          Value: !Sub "EIP-${ProjectName}"
+  Route53Record:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      HostedZoneId: !Ref Route53HostedZoneID
+      Name: !Ref DomainName
+      Type: A
+      TTL: "900"
+      ResourceRecords:
+        - !Ref EC2EIP
+  Route53RecordWWW:
+    Type: "AWS::Route53::RecordSet"
+    Condition: CreateWWWRecord
+    Properties:
+      HostedZoneId: !Ref Route53HostedZoneID
+      Name: !Sub "www.${DomainName}"
+      Type: A
+      TTL: "900"
+      ResourceRecords:
+        - !Ref EC2EIP
+Outputs:
+  WebsiteURL:
+    Description: "URL using EC2 instance's [PublicDnsName]"
+    Value: !Join [ "", [ "http://", !GetAtt EC2Instance.PublicDnsName ] ]
