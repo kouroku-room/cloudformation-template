@@ -24,8 +24,7 @@ Parameters:
     MinLength: "1"
     ConstraintDescription: must be the name of an existing EC2 KeyPair.
   SSHLocation:
-    Description: "The IP address range that can be used to SSH to EC2 instance.\n
-      If you want to even more security, consider using Systems Manager's Session Manager."
+    Description: The IP address range that can be used to SSH to EC2 instance.
     Type: String
     MinLength: "9"
     MaxLength: "18"
